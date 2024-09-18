@@ -23,6 +23,7 @@ import java.util.List;
 import io.github.lsc.sde.analytics.workspace.management.models.V1AnalyticsWorkspace;
 import io.github.lsc.sde.analytics.workspace.management.models.V1AnalyticsWorkspaceBinding;
 import com.google.gson.Gson;
+import org.keycloak.events.EventBuilder;
 
 @AutoService(RequiredActionFactory.class)
 public class WorkspaceRequiredAction implements
@@ -33,6 +34,7 @@ public class WorkspaceRequiredAction implements
 	public static final String WORKSPACE_NAME = "workspace_name";
 	public static final String WORKSPACE_ID = "workspace_id";
 	public static final String WORKSPACE_ID_FORMATTED = "workspace_id_formatted";
+	public static final String WORKSPACE_ASSIGNED_SESSION = "workspace_assigned_session";
 	public static final String PROVIDER_ID = "workspace";
 	public WorkspaceKubernetesClient workspaceClient;
 
@@ -43,7 +45,10 @@ public class WorkspaceRequiredAction implements
 
 	@Override
 	public void evaluateTriggers(RequiredActionContext context) {
-		if (context.getUser().getFirstAttribute(WORKSPACE_NAME) == null || context.getUser().getFirstAttribute(WORKSPACE_ID) == null || context.getUser().getFirstAttribute(WORKSPACE_ID_FORMATTED) == null || context.getUser().getFirstAttribute(WORKSPACE_BINDING) == null) {
+		if (context.getUser().getFirstAttribute(WORKSPACE_ASSIGNED_SESSION) == null || context.getUser().getFirstAttribute(WORKSPACE_NAME) == null || context.getUser().getFirstAttribute(WORKSPACE_ID) == null || context.getUser().getFirstAttribute(WORKSPACE_ID_FORMATTED) == null || context.getUser().getFirstAttribute(WORKSPACE_BINDING) == null) {
+			context.getUser().addRequiredAction(PROVIDER_ID);
+		}
+		else if (context.getUser().getFirstAttribute(WORKSPACE_ASSIGNED_SESSION) != null && !context.getUser().getFirstAttribute(WORKSPACE_ASSIGNED_SESSION).equals(context.getAuthenticationSession().getParentSession().getId())) {
 			context.getUser().addRequiredAction(PROVIDER_ID);
 		}
 		else {
@@ -63,6 +68,7 @@ public class WorkspaceRequiredAction implements
 	@Override
 	public void processAction(RequiredActionContext context) {
 		// submitted form
+		EventBuilder eventBuilder = context.getEvent();
 		MultivaluedMap<String, String> formData = context.getHttpRequest().getDecodedFormParameters();
 		String boundWorkspace = formData.getFirst(WORKSPACE_NAME); 
 		String workspaceName = boundWorkspace.split(":")[0];
@@ -80,7 +86,11 @@ public class WorkspaceRequiredAction implements
 		user.setSingleAttribute(WORKSPACE_NAME, workspaceName);
 		user.setSingleAttribute(WORKSPACE_ID, workspaceId);
 		user.setSingleAttribute(WORKSPACE_ID_FORMATTED, workspaceIdFormatted);
+		user.setSingleAttribute(WORKSPACE_ASSIGNED_SESSION, context.getAuthenticationSession().getParentSession().getId());
 		user.removeRequiredAction(PROVIDER_ID);
+		eventBuilder.detail(WORKSPACE_ID, workspaceId);
+		eventBuilder.detail(WORKSPACE_NAME, workspaceName);
+		eventBuilder.detail(WORKSPACE_BINDING, bindingName);
 		workspaceClient.setActiveWorkspaceBindingForUser(bindingName, user.getUsername());
 		context.getAuthenticationSession().removeRequiredAction(PROVIDER_ID);
 		context.success();
