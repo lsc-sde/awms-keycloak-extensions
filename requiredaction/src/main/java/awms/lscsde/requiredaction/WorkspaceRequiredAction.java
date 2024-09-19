@@ -24,6 +24,8 @@ import io.github.lsc.sde.analytics.workspace.management.models.V1AnalyticsWorksp
 import io.github.lsc.sde.analytics.workspace.management.models.V1AnalyticsWorkspaceBinding;
 import com.google.gson.Gson;
 import org.keycloak.events.EventBuilder;
+import java.util.concurrent.TimeUnit;
+import java.lang.InterruptedException;
 
 @AutoService(RequiredActionFactory.class)
 public class WorkspaceRequiredAction implements
@@ -36,6 +38,7 @@ public class WorkspaceRequiredAction implements
 	public static final String WORKSPACE_ID_FORMATTED = "workspace_id_formatted";
 	public static final String WORKSPACE_ASSIGNED_SESSION = "workspace_assigned_session";
 	public static final String PROVIDER_ID = "workspace";
+	public static final String GUACAMOLE_CLIENT_NAME = "guacamole";
 	public WorkspaceKubernetesClient workspaceClient;
 
 	@Override
@@ -48,7 +51,7 @@ public class WorkspaceRequiredAction implements
 		if (context.getUser().getFirstAttribute(WORKSPACE_ASSIGNED_SESSION) == null || context.getUser().getFirstAttribute(WORKSPACE_NAME) == null || context.getUser().getFirstAttribute(WORKSPACE_ID) == null || context.getUser().getFirstAttribute(WORKSPACE_ID_FORMATTED) == null || context.getUser().getFirstAttribute(WORKSPACE_BINDING) == null) {
 			context.getUser().addRequiredAction(PROVIDER_ID);
 		}
-		else if (context.getUser().getFirstAttribute(WORKSPACE_ASSIGNED_SESSION) != null && !context.getUser().getFirstAttribute(WORKSPACE_ASSIGNED_SESSION).equals(context.getAuthenticationSession().getParentSession().getId())) {
+		else if (context.getSession().getContext().getClient().getName().equals(GUACAMOLE_CLIENT_NAME) && context.getUser().getFirstAttribute(WORKSPACE_ASSIGNED_SESSION) != null && !context.getUser().getFirstAttribute(WORKSPACE_ASSIGNED_SESSION).equals(context.getAuthenticationSession().getParentSession().getId())) {
 			context.getUser().addRequiredAction(PROVIDER_ID);
 		}
 		else {
@@ -93,6 +96,12 @@ public class WorkspaceRequiredAction implements
 		eventBuilder.detail(WORKSPACE_BINDING, bindingName);
 		workspaceClient.setActiveWorkspaceBindingForUser(bindingName, user.getUsername());
 		context.getAuthenticationSession().removeRequiredAction(PROVIDER_ID);
+		try {
+			TimeUnit.SECONDS.sleep(3);
+		}
+		catch(InterruptedException ex){
+			
+		}
 		context.success();
 	}
 
