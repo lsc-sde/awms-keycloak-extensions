@@ -29,9 +29,9 @@ import java.lang.InterruptedException;
 
 @AutoService(RequiredActionFactory.class)
 public class WorkspaceRequiredAction implements
-	RequiredActionFactory, RequiredActionProvider {
+		RequiredActionFactory, RequiredActionProvider {
 
-    private static final Logger LOG = Logger.getLogger(WorkspaceRequiredAction.class);
+	private static final Logger LOG = Logger.getLogger(WorkspaceRequiredAction.class);
 	public static final String WORKSPACE_BINDING = "workspace_binding";
 	public static final String WORKSPACE_NAME = "workspace_name";
 	public static final String WORKSPACE_ID = "workspace_id";
@@ -48,13 +48,18 @@ public class WorkspaceRequiredAction implements
 
 	@Override
 	public void evaluateTriggers(RequiredActionContext context) {
-		if (context.getUser().getFirstAttribute(WORKSPACE_ASSIGNED_SESSION) == null || context.getUser().getFirstAttribute(WORKSPACE_NAME) == null || context.getUser().getFirstAttribute(WORKSPACE_ID) == null || context.getUser().getFirstAttribute(WORKSPACE_ID_FORMATTED) == null || context.getUser().getFirstAttribute(WORKSPACE_BINDING) == null) {
+		if (context.getUser().getFirstAttribute(WORKSPACE_ASSIGNED_SESSION) == null
+				|| context.getUser().getFirstAttribute(WORKSPACE_NAME) == null
+				|| context.getUser().getFirstAttribute(WORKSPACE_ID) == null
+				|| context.getUser().getFirstAttribute(WORKSPACE_ID_FORMATTED) == null
+				|| context.getUser().getFirstAttribute(WORKSPACE_BINDING) == null) {
 			context.getUser().addRequiredAction(PROVIDER_ID);
-		}
-		else if (context.getSession().getContext().getClient().getName().equals(GUACAMOLE_CLIENT_NAME) && context.getUser().getFirstAttribute(WORKSPACE_ASSIGNED_SESSION) != null && !context.getUser().getFirstAttribute(WORKSPACE_ASSIGNED_SESSION).equals(context.getAuthenticationSession().getParentSession().getId())) {
+		} else if (context.getSession().getContext().getClient().getName().equals(GUACAMOLE_CLIENT_NAME)
+				&& context.getUser().getFirstAttribute(WORKSPACE_ASSIGNED_SESSION) != null
+				&& !context.getUser().getFirstAttribute(WORKSPACE_ASSIGNED_SESSION)
+						.equals(context.getAuthenticationSession().getParentSession().getId())) {
 			context.getUser().addRequiredAction(PROVIDER_ID);
-		}
-		else {
+		} else {
 			initialiseClient();
 			String workspaceBinding = context.getUser().getFirstAttribute(WORKSPACE_BINDING);
 			String username = context.getUser().getUsername();
@@ -73,12 +78,13 @@ public class WorkspaceRequiredAction implements
 		// submitted form
 		EventBuilder eventBuilder = context.getEvent();
 		MultivaluedMap<String, String> formData = context.getHttpRequest().getDecodedFormParameters();
-		String boundWorkspace = formData.getFirst(WORKSPACE_NAME); 
+		String boundWorkspace = formData.getFirst(WORKSPACE_NAME);
 		String workspaceName = boundWorkspace.split(":")[0];
 		String bindingName = boundWorkspace.split(":")[1];
 
 		if (Validation.isBlank(workspaceName) || workspaceName.length() < 5) {
-			context.challenge(createForm(context, form -> form.addError(new FormMessage(WORKSPACE_NAME, "workspaceNameInvalid"))));
+			context.challenge(createForm(context,
+					form -> form.addError(new FormMessage(WORKSPACE_NAME, "workspaceNameInvalid"))));
 			return;
 		}
 
@@ -89,7 +95,8 @@ public class WorkspaceRequiredAction implements
 		user.setSingleAttribute(WORKSPACE_NAME, workspaceName);
 		user.setSingleAttribute(WORKSPACE_ID, workspaceId);
 		user.setSingleAttribute(WORKSPACE_ID_FORMATTED, workspaceIdFormatted);
-		user.setSingleAttribute(WORKSPACE_ASSIGNED_SESSION, context.getAuthenticationSession().getParentSession().getId());
+		user.setSingleAttribute(WORKSPACE_ASSIGNED_SESSION,
+				context.getAuthenticationSession().getParentSession().getId());
 		user.removeRequiredAction(PROVIDER_ID);
 		eventBuilder.detail(WORKSPACE_ID, workspaceId);
 		eventBuilder.detail(WORKSPACE_NAME, workspaceName);
@@ -98,9 +105,8 @@ public class WorkspaceRequiredAction implements
 		context.getAuthenticationSession().removeRequiredAction(PROVIDER_ID);
 		try {
 			TimeUnit.SECONDS.sleep(3);
-		}
-		catch(InterruptedException ex){
-			
+		} catch (InterruptedException ex) {
+
 		}
 		context.success();
 	}
@@ -137,12 +143,11 @@ public class WorkspaceRequiredAction implements
 	}
 
 	private void initialiseClient() {
-		if(workspaceClient == null){
+		if (workspaceClient == null) {
 			try {
 				workspaceClient = new WorkspaceKubernetesClient();
 				LOG.info("Workspace Client Initialised");
-			} 
-			catch (IOException ex) {
+			} catch (IOException ex) {
 				LOG.error(ex);
 			}
 		}
@@ -155,21 +160,23 @@ public class WorkspaceRequiredAction implements
 		List<BoundWorkspace> availableWorkspaces = workspaceClient.getAllWorkspacesForUser(username);
 		Gson gson = new Gson();
 		HashMap<String, String> availableWorkspacesHashMap = new HashMap<>();
-		for(BoundWorkspace boundWorkspace : availableWorkspaces) {
+		for (BoundWorkspace boundWorkspace : availableWorkspaces) {
 			V1AnalyticsWorkspace workspace = boundWorkspace.getWorkspace();
 			V1AnalyticsWorkspaceBinding binding = boundWorkspace.getBinding();
-			String name = String.format("%s:%s", workspace.getMetadata().getName(), binding.getMetadata().getName());
-			String displayName = workspace.getSpec().getDisplayName();
-			availableWorkspacesHashMap.put(name, displayName);
+			if (workspace != null && binding != null) {
+				String name = String.format("%s:%s", workspace.getMetadata().getName(),
+						binding.getMetadata().getName());
+				String displayName = workspace.getSpec().getDisplayName();
+				availableWorkspacesHashMap.put(name, displayName);
+			}
 		}
-		
+
 		String availableWorkspacesJson = gson.toJson(availableWorkspacesHashMap);
 
-
 		LoginFormsProvider form = context.form()
-			.setAttribute("username", username)
-			.setAttribute("available_workspaces", availableWorkspacesJson)
-			.setAttribute(WORKSPACE_NAME, workspaceName);
+				.setAttribute("username", username)
+				.setAttribute("available_workspaces", availableWorkspacesJson)
+				.setAttribute(WORKSPACE_NAME, workspaceName);
 
 		if (formConsumer != null) {
 			formConsumer.accept(form);

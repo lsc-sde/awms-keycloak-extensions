@@ -12,4 +12,5 @@ jobs:
     with:
       imageName: awms-keycloak
       directory: products/sde-3rd-party/keycloak/awms-keycloak-extensions
+      yamlPath: keycloak
     secrets: inherit
