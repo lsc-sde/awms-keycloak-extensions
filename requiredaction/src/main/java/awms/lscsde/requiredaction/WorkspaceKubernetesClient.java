@@ -84,16 +84,16 @@ public class WorkspaceKubernetesClient {
             String workspaceName = binding.getSpec().getWorkspace();
             if(!workspaces.containsKey(workspaceName)) {
                 LOG.info(String.format("Found Workspace '%s' for '%s'", workspaceName, username));
-                V1AnalyticsWorkspace workspace = workspaceApi.get(DEFAULT_NAMESPACE, workspaceName).getObject();
+                V1AnalyticsWorkspace workspace = workspaceApi.get(binding.getMetadata().getNamespace(), workspaceName).getObject();
                 workspaces.put(workspaceName, new BoundWorkspace(workspace, binding));
             }
         }
         return workspaces.values().stream().collect(Collectors.toList());
     }
 
-    public V1AnalyticsWorkspaceBinding patchWorkspaceBindingScale(String workspaceBindingName, Integer value){
+    public V1AnalyticsWorkspaceBinding patchWorkspaceBindingScale(String namespace, String workspaceBindingName, Integer value){
         String jsonPatchString = String.format("[{\"op\":\"replace\", \"path\":\"/spec/replicas\", \"value\":%d}]", value);
-        KubernetesApiResponse<V1AnalyticsWorkspaceBinding> response = workspaceBindingApi.patch(DEFAULT_NAMESPACE, workspaceBindingName, "application/json-patch+json", new V1Patch(jsonPatchString));
+        KubernetesApiResponse<V1AnalyticsWorkspaceBinding> response = workspaceBindingApi.patch(namespace, workspaceBindingName, "application/json-patch+json", new V1Patch(jsonPatchString));
         LOG.info(String.format("HttpStatusCode is: %s", response.getHttpStatusCode()));
         LOG.info(String.format("Status is: %s", response.getStatus()));
         return response.getObject();
@@ -109,7 +109,7 @@ public class WorkspaceKubernetesClient {
             }
 
             LOG.info(String.format("Setting replica=%d on binding '%s' for user '%s'", replicas, bindingName, username));
-            patchWorkspaceBindingScale(bindingName, replicas);
+            patchWorkspaceBindingScale(binding.getMetadata().getNamespace(), bindingName, replicas);
         }
     }
 }
